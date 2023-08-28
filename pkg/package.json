@@ -1,0 +1,14 @@
+{
+  "name": "urcl-io",
+  "version": "0.1.0",
+  "files": [
+    "urcl_io_bg.wasm",
+    "urcl_io.js",
+    "urcl_io.d.ts"
+  ],
+  "module": "urcl_io.js",
+  "types": "urcl_io.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

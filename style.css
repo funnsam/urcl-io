@@ -1,0 +1,152 @@
+@import url("https://cdn.jsdelivr.net/npm/@fontsource/cascadia-code@4.2.1/index.min.css");
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans&display=swap');
+
+html, body {
+    margin          : 0;
+    padding         : 0;
+    height          : 100%;
+    width           : 100%;
+    color           : white;
+    background      : linear-gradient(to bottom, #32363e, #282c34);
+    overflow        : hidden;
+    font            : 1rem "Open Sans", sans-serif;
+}
+
+body {
+    display         : flex;
+    flex-direction  : column;
+    align-items     : center;
+    align-content   : center;
+    gap             : 1rem;
+    justify-content : center;
+	padding 		: 5%;
+	box-sizing  	: border-box;
+}
+
+window, nav {
+    display         : flex;
+    flex-direction  : row;
+    justify-content : space-evenly;
+    gap             : 1rem;
+    margin          : 0;
+	width 			: 100%;
+    padding         : 1rem;
+    border-radius   : 10px;
+    background-color: #1818189f;
+    backdrop-filter : blur(10px);
+    box-shadow      : 0 4px 30px #0000007f;
+	box-sizing  	: border-box;
+}
+
+window { flex: 1; }
+nav    { flex: 0 4rem; }
+
+button {
+	transition 		: .25s;
+	border  		: 1px solid transparent;
+	height 			: 100%;
+    border-radius   : 10px;
+    background-color: #2828289f;
+    backdrop-filter : blur(10px);
+    box-shadow      : 0 4px 30px #1010107f;
+	color  			: white;
+	font-size 		: 1rem;
+	min-width 		: 7.5rem;
+	cursor 			: pointer;
+}
+
+button:hover:not(:active) {
+    background-color: #3838389f;
+    box-shadow      : 0 4px 30px #2020207f;
+}
+
+button:hover, button:active {
+	border  		: 1px solid white;
+}
+
+editor {
+	flex 			: 1;
+	min-width 		: 0;
+    padding         : 1rem;
+    border-radius   : 10px;
+    background-color: #2828289f;
+    backdrop-filter : blur(10px);
+    box-shadow      : 0 4px 30px #1010107f;
+}
+
+io {
+	flex 			: 1;
+	min-width 		: 0;
+
+	display 	 	: flex;
+    flex-direction  : column;
+    align-items     : center;
+    align-content   : center;
+    gap             : 1rem;
+    justify-content : center;
+	box-sizing  	: border-box;
+}
+
+io > *, editor > * {
+    max-width       : 100%;
+    min-width       : 100%;
+}
+
+io > * {
+    padding         : 1rem;
+	box-sizing  	: border-box;
+}
+
+#screen {
+	background-color: #e06c75;
+	flex 			: 0 10rem;
+	text-align 		: center;
+}
+
+#console {
+	flex 			: 2;
+    max-width       : 100%;
+    min-width       : 100%;
+    border-radius   : 10px;
+    background-color: #2828289f;
+    backdrop-filter : blur(10px);
+    box-shadow      : 0 4px 30px #1010107f;
+    font            : 1rem "Cascadia Code", monospace;
+}
+
+textarea {
+    resize          : none;
+    font            : 1rem "Cascadia Code", monospace;
+    height          : 100%;
+    padding         : 0;
+    margin          : 0;
+    outline         : 0;
+    border          : 0;
+    color           : transparent;
+    background-color: transparent;
+    caret-color     : white;
+    overflow        : auto;
+    overflow-wrap   : normal;
+    white-space     : pre;
+    tab-size        : 4;
+}
+
+textarea::selection {
+    color           : transparent;
+    background-color: #2e6eaa9f;
+}
+
+#hl_box {
+    position        : relative;
+    top             : -100%;
+    pointer-events  : none;
+    background-color: transparent;
+    padding         : 0 !important;
+    width           : 100%;
+    height          : 100%;
+    white-space     : pre;
+    overflow        : hidden;
+    word-break      : break-all;
+    font            : 1rem "Cascadia Code", monospace;
+    tab-size        : 4;
+}

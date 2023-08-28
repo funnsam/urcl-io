@@ -1,0 +1,21 @@
+[package]
+name = "urcl-io"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1.6"
+logos = "0.13.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+overflow-checks = false
+
+[profile.dev]
+overflow-checks = false
