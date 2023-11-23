@@ -1,3 +1,16 @@
+#![warn(
+    clippy::complexity,
+    clippy::correctness,
+    clippy::perf,
+    clippy::nursery,
+    clippy::suspicious,
+    clippy::style,
+)]
+#![allow(
+    clippy::semicolon_inside_block,
+    clippy::just_underscores_and_digits,
+)]
+
 use wasm_bindgen::prelude::*;
 
 extern crate console_error_panic_hook;
@@ -19,7 +32,7 @@ extern {
 #[macro_export]
 macro_rules! logprintln {
     ($($arg:tt)*) => {{
-        log(&format!($($arg)*).to_string());
+        $crate::log(&format!($($arg)*).to_string());
     }};
 }
 
@@ -30,9 +43,11 @@ pub fn init_panic_hook() {
 
 #[wasm_bindgen]
 pub fn test(src: &str) {
-    use emulator::lexer::*;
-    let tok = Token::lexer(src).collect::<Vec<Result<Token, ()>>>();
-    logprintln!("{tok:#?}");
+    use emulator::{lexer::*, ast::*, parser::*};
+    let mut lex = Token::lexer(src);
+    let mut parser = Parser::new(&mut lex).unwrap();
+    parse(&mut parser).unwrap();
+    logprintln!("{parser:#?}");
 }
 
 static mut RAND_SEED: u64 = 0;

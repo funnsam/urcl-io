@@ -1,12 +1,12 @@
 pub use logos::{Logos, Lexer};
-use super::*;
+
 
 #[derive(Clone, Debug, Logos)]
 #[logos(skip r"//[^\n]+")]
 #[logos(skip r"[\s^\n]")]
 pub enum Token {
-    #[regex(r"(\+|\-)?(0[xX][A-Fa-f0-9]+|0[bB][0-1]+|0[oO][0-7]+|[0-9]+)", callback = |lex| parse_number(lex, 0), priority = 2)]
-    Number(Option<i64>),
+    #[regex(r"(\+|\-)?(0[xX][A-Fa-f0-9]+|0[bB][0-1]+|0[oO][0-7]+|[0-9]+)", callback = |lex| parse_number(lex, 0).unwrap(), priority = 2)]
+    Number(i64),
 
     #[regex(r"@[\S]+", callback = |lex| rm_prefix(lex, 1))]
     Macro(String),
@@ -20,20 +20,20 @@ pub enum Token {
     #[regex(r"[\S]+", callback = |lex| rm_prefix(lex, 0), priority = 0)]
     Name(String),
 
-    #[regex(r"(R|r|\$)(\+|\-)?(0[xX][A-Fa-f0-9]+|0[bB][0-1]+|0[oO][0-7]+|[0-9]+)", callback = |lex| parse_number(lex, 1))]
-    Register(Option<i64>),
+    #[regex(r"(R|r|\$)(\+|\-)?(0[xX][A-Fa-f0-9]+|0[bB][0-1]+|0[oO][0-7]+|[0-9]+)", callback = |lex| parse_number(lex, 1).unwrap())]
+    Register(i64),
 
-    #[regex(r"(M|m|\#)(\+|\-)?(0[xX][A-Fa-f0-9]+|0[bB][0-1]+|0[oO][0-7]+|[0-9]+)", callback = |lex| parse_number(lex, 1))]
-    Memory(Option<i64>),
+    #[regex(r"(M|m|\#)(\+|\-)?(0[xX][A-Fa-f0-9]+|0[bB][0-1]+|0[oO][0-7]+|[0-9]+)", callback = |lex| parse_number(lex, 1).unwrap())]
+    Memory(i64),
 
-    #[regex(r"'([^']|\\.|\\x[0-9a-fA-F]+|\\u[0-9a-fA-F]+)*'", callback = |lex| parse_char(lex), priority = 2)]
-    Char(Option<char>),
+    #[regex(r"'([^']|\\.|\\x[0-9a-fA-F]+|\\u[0-9a-fA-F]+)*'", callback = |lex| parse_char(lex).unwrap(), priority = 2)]
+    Char(char),
 
     #[token("\n")]
     Newline,
 }
 
-fn parse_char(lex: &mut Lexer<Token>) -> Option<char> {
+fn parse_char(lex: &Lexer<Token>) -> Option<char> {
     let c = lex.slice();
     match c.chars().nth(1) {
         Some('\\') => match c.chars().nth(2) {
@@ -68,7 +68,7 @@ fn parse_char(lex: &mut Lexer<Token>) -> Option<char> {
     }
 }
 
-fn parse_number(lex: &mut Lexer<Token>, skip: usize) -> Option<i64> {
+fn parse_number(lex: &Lexer<Token>, skip: usize) -> Option<i64> {
     let number = lex.slice();
     let mut i  = skip;
     let mut neg = false;
@@ -91,6 +91,6 @@ fn parse_number(lex: &mut Lexer<Token>, skip: usize) -> Option<i64> {
     }
 }
 
-fn rm_prefix(lex: &mut Lexer<Token>, skip: usize) -> String {
+fn rm_prefix(lex: &Lexer<Token>, skip: usize) -> String {
     lex.slice()[skip..].to_string()
 }
