@@ -24,6 +24,49 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
         }};
     }
 
+    macro_rules! options_get_value {
+        ($tok: expr) => {
+            match $tok {
+                Token::Name(name)       => Some(Any::Name(name.clone())),
+                Token::Label(lb)        => Some(Any::UnresolvedLabel(give_id!(lb.clone()))),
+                Token::Register(rth)    => Some(Any::Register(rth as usize)),
+                Token::Number(num)      => Some(Any::Immediate(Box::new(num as u64))),
+                Token::Char(chr)        => Some(Any::Immediate(Box::new(chr as u64))),
+                _ => None,
+            }
+        };
+    }
+
+    macro_rules! get_value {
+        ($tok: expr) => {
+            options_get_value!($tok).expect("expecting value")
+        };
+    }
+
+    macro_rules! options_get_value_fold {
+        ($tok: expr) => {
+            match $tok {
+                Token::Name(n) => Some(name.get(&n).unwrap().clone()),
+                other          => options_get_value!(other),
+            }
+        };
+    }
+
+    macro_rules! get_value_fold {
+        ($tok: expr) => {
+            options_get_value_fold!($tok).expect("expecting value")
+        };
+    }
+
+    macro_rules! get_name {
+        ($tok: expr) => {
+            match $tok {
+                Token::Name(name) => name.clone(),
+                _ => todo!("expecting name"),
+            }
+        }
+    }
+
     while let Some((tok, span)) = parser.next().cloned() {
         match tok {
             Token::Name(n) => if opcd.is_empty() {
@@ -32,28 +75,12 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
             } else {
                 args.push(Any::Name(n.clone()));
             },
-            Token::Label(lb) => args.push(Any::UnresolvedLabel(give_id!(lb.clone()))),
-            Token::Register(rth) => args.push(Any::Register(rth as usize)),
-            Token::Number(num) => args.push(Any::Immediate(Box::new(num as u64))),
             Token::Macro(m) => match m.to_lowercase().as_str() {
                 "define" => {
-                    let f = parser.next().cloned().unwrap(); // TODO: eof or nl handle
-                    let t = parser.next().cloned().unwrap();
+                    let k = get_name!(parser.next().cloned().unwrap().0);
+                    let v = get_value_fold!(parser.next().cloned().unwrap().0);
 
-                    let f = match f.0 {
-                        Token::Name(n) => n,
-                        _ => todo!("unexpected token type")
-                    };
-
-                    let t = match t.0 {
-                        Token::Name(n) => name.get(&n).cloned().unwrap(),
-                        Token::Label(lb) => Any::UnresolvedLabel(give_id!(lb.clone())),
-                        Token::Register(rth) => Any::Register(rth as usize),
-                        Token::Number(num) => Any::Immediate(Box::new(num as u64)),
-                        _ => todo!("unexpected token type"),
-                    };
-
-                    name.insert(f, t);
+                    name.insert(k, v);
                 },
                 _ => todo!("unknown macro"),
             },
@@ -71,6 +98,8 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
                             let imm_clone = unsafe { std::ptr::read::<Box<u64>>(&imm as *const Immediate) };
                             replace_labels.push((id, imm_clone));
                             Any::Immediate(imm)
+                        } else if let Any::Name(id) = a {
+                            name.get(&id).cloned().unwrap()
                         } else {
                             a
                         }
@@ -110,10 +139,11 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
                                 },
                             )*
                             "" => {
-                                match args.get(0).unwrap() {
-                                    Any::UnresolvedLabel(l) => {
+                                match args.get(0) {
+                                    Some(Any::UnresolvedLabel(l)) => {
                                         label.2.insert(*l, parser.ast.instructions.len() as u64);
                                     },
+                                    None => {},
                                     _ => todo!("unexpected"),
                                 }
 
@@ -132,9 +162,14 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
                     BGE Any Any Any,
                     NOR Register Any Any,
                     IMM Register Any,
+
+                    MOV Register Any,
+
+                    IN Register Any,
+                    OUT Any Any,
                 );
             },
-            _ => todo!("{:?}", tok)
+            other => args.push(get_value!(other)),
         }
     }
 

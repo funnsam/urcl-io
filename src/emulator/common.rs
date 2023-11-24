@@ -8,6 +8,11 @@ pub enum Instruction {
     BGE(Any, Any, Any),
     NOR(Register, Any, Any),
     IMM(Register, Any),
+
+    MOV(Register, Any),
+
+    IN(Register, Any),
+    OUT(Any, Any),
 }
 
 #[derive(Debug, Clone)]
