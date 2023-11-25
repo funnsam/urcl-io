@@ -1,0 +1,3 @@
+@define oh r3
+@define cool oh
+add r1 r2 cool

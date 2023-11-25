@@ -3,13 +3,23 @@ use logos::Span;
 
 #[derive(Debug)]
 pub struct Ast {
-    pub instructions: Vec<(Instruction, Span)>
+    pub instructions: Vec<(Instruction, Span)>,
+    pub dw: Vec<u64>,
+    pub minheap: usize,
+    pub minstack: usize,
+    pub minregs: usize,
+    pub bits: usize,
 }
 
 impl Ast {
     pub const fn new() -> Self {
         Self {
-            instructions: Vec::new()
+            instructions: Vec::new(),
+            dw: Vec::new(),
+            minheap: 8,
+            minstack: 16,
+            minregs: 8,
+            bits: 8,
         }
     }
 }
