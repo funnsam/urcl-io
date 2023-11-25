@@ -5,8 +5,20 @@ fn main() {
 
     let mut lex = Token::lexer(&src);
     let mut parser = Parser::new(&mut lex).unwrap();
-    parse(&mut parser).unwrap();
+    match parse(&mut parser) {
+        Ok(()) => {},
+        Err(errors) => {
+            let segments = errors_to_formats(errors, &src);
+            for s in segments {
+                print!("{}", s.to_ansi());
+            }
+
+            std::process::exit(1);
+        },
+    }
     println!("{:#?}", parser.ast);
+
+    return;
 
     let mut interpreter = Interpreter::new(parser.ast);
     loop {

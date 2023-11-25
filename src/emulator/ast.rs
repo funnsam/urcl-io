@@ -59,12 +59,12 @@ impl Parser {
         self.index += 1;
         self.tokens.get(self.index-1)
     }
+
+    pub fn current(&mut self) -> Option<&AToken> {
+        self.tokens.get(self.index)
+    }
     /*
     pub fn peek(&mut self) -> Option<&AToken> {
         self.tokens.get(self.index+1)
     } */
-}
-
-#[derive(Debug)]
-pub enum ParserError {
 }

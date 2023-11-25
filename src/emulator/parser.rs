@@ -1,16 +1,17 @@
-use super::{ast::*, lexer::*, common::*};
+use super::{ast::*, lexer::*, common::*, error::*};
 use logos::Span;
 use std::collections::HashMap;
 
 #[allow(clippy::cognitive_complexity)]
-pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
+pub fn parse(parser: &mut Parser) -> Result<(), Vec<Error<ParserError>>> {
     let mut args = Vec::new();
-    let mut opcd = String::new();
-    let mut start_span = 0;
+    let mut opcd = (String::new(), Span::default());
+
+    let mut errors = Vec::new();
 
     let mut name  = HashMap::<String, Any>::new();
     let mut label = (HashMap::<String, usize>::new(), 0, HashMap::<usize, u64>::new());
-    let mut replace_labels = Vec::<(usize, Immediate)>::new();
+    let mut replace_labels = Vec::<(usize, Immediate, Span)>::new();
 
     macro_rules! give_id {
         ($name: expr) => {{
@@ -38,51 +39,91 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
     }
 
     macro_rules! get_value {
-        ($tok: expr) => {
-            options_get_value!($tok).expect("expecting value")
+        ($main_loop: tt: $tok_span_tuple: expr) => {
+            some_or_error!($main_loop: options_get_value!($tok_span_tuple.0), ExpectingValue in $tok_span_tuple.1)
         };
+        ($main_loop: tt: $tok: expr, $span: expr) => { get_value!($main_loop: ($tok, $span)) };
     }
 
     macro_rules! options_get_value_fold {
-        ($tok: expr) => {
+        ($main_loop: tt: $tok: expr, $span: expr) => {
             match $tok {
-                Token::Name(n) => Some(name.get(&n).unwrap().clone()),
+                Token::Name(n) => Some(some_or_error!($main_loop: name.get(&n), NameNotDefined in $span).clone()),
                 other          => options_get_value!(other),
             }
         };
     }
 
     macro_rules! get_value_fold {
-        ($tok: expr) => {
-            options_get_value_fold!($tok).expect("expecting value")
+        ($main_loop: tt: $tok_span_tuple: expr) => {
+            some_or_error!($main_loop: options_get_value_fold!($main_loop: $tok_span_tuple.0, $tok_span_tuple.1), ExpectingValue in $tok_span_tuple.1)
         };
+        ($main_loop: tt: $tok: expr, $span: expr) => { get_value_fold!($main_loop, ($tok, $span)) };
     }
 
-    macro_rules! get_name {
+    macro_rules! options_get_name {
         ($tok: expr) => {
             match $tok {
-                Token::Name(name) => name.clone(),
-                _ => todo!("expecting name"),
+                Token::Name(name) => Some(name.clone()),
+                _ => None,
             }
         }
     }
 
-    while let Some((tok, span)) = parser.next().cloned() {
-        match tok {
-            Token::Name(n) => if opcd.is_empty() {
-                opcd = n.clone();
-                start_span = span.start;
+    macro_rules! get_name {
+        ($main_loop: tt: $tok_span_tuple: expr) => {
+            some_or_error!($main_loop: options_get_name!($tok_span_tuple.0), ExpectingValue in $tok_span_tuple.1)
+        };
+        ($main_loop: tt: $tok: expr, $span: expr) => { get_name!($main_loop: ($tok, $span)) };
+    }
+
+    macro_rules! some_or_error {
+        ($main_loop: tt: $opt: expr, $kind: ident in $span: expr) => {
+            if let Some(ok) = $opt {
+                ok
             } else {
-                args.push(Any::Name(n.clone()));
+                error!($main_loop: $kind in $span);
+            }
+        }
+    }
+
+    macro_rules! error {
+        ($main_loop: tt: $kind: ident in $span: expr) => {{
+            errors.push(Error { kind: ParserError::$kind, span: $span });
+            opcd.0.clear();
+            args.clear();
+
+            if !matches!(parser.current(), Some((Token::Newline, _))) {
+                while let Some((tok, _)) = parser.next() {
+                    match tok {
+                        Token::Newline => break,
+                        _ => {},
+                    }
+                }
+            }
+
+            continue $main_loop;
+        }};
+        (not_in_loop: $kind: ident in $span: expr) => {{
+            errors.push(Error { kind: $kind, span: $span });
+        }};
+    }
+
+    'main_loop: while let Some((tok, span)) = parser.next().cloned() {
+        match tok {
+            Token::Name(n) => if opcd.0.is_empty() && args.is_empty() {
+                opcd = (n.clone(), span);
+            } else {
+                args.push((Any::Name(n.clone()), span));
             },
             Token::Macro(m) => match m.to_lowercase().as_str() {
                 "define" => {
-                    let k = get_name!(parser.next().cloned().unwrap().0);
-                    let v = get_value_fold!(parser.next().cloned().unwrap().0);
+                    let k = get_name!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span));
+                    let v = get_value_fold!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span));
 
                     name.insert(k, v);
                 },
-                _ => todo!("unknown macro"),
+                _ => error!('main_loop: UnknownMacro in span),
             },
             Token::Newline => {
                 macro_rules! count {
@@ -93,63 +134,63 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
                 macro_rules! any_or {
                     (Any) => {{
                         let a = args.remove(0);
-                        if let Any::UnresolvedLabel(id) = a {
+                        if let Any::UnresolvedLabel(id) = a.0 {
                             let imm = Box::new(69);
                             let imm_clone = unsafe { std::ptr::read::<Box<u64>>(&imm as *const Immediate) };
-                            replace_labels.push((id, imm_clone));
+                            replace_labels.push((id, imm_clone, span.clone()));
                             Any::Immediate(imm)
-                        } else if let Any::Name(id) = a {
-                            name.get(&id).cloned().unwrap()
+                        } else if let Any::Name(id) = a.0 {
+                            some_or_error!('main_loop: name.get(&id).clone(), NameNotDefined in a.1).clone()
                         } else {
-                            a
+                            a.0
                         }
                     }};
                     ($variant: ident) => {{
                         let a = args.remove(0);
-                        if let Any::$variant(ok) = a {
+                        if let Any::$variant(ok) = a.0 {
                             ok
-                        } else if let Any::Name(id) = a {
-                            let r = name.get(&id).clone();
-                            if let Some(Any::$variant(ok)) = r {
-                                *ok
+                        } else if let Any::Name(id) = a.0 {
+                            let r = some_or_error!('main_loop: name.get(&id).clone(), NameNotDefined in a.1);
+                            if let Any::$variant(ok) = r {
+                                ok.clone()
                             } else {
-                                todo!("name type not match");
+                                error!('main_loop: OperandWrongType in a.1);
                             }
                         } else {
-                            todo!("arg not match");
+                            error!('main_loop: OperandWrongType in a.1);
                         }
                     }};
                 }
 
                 macro_rules! match_opcode {
                     ($($name: ident $($variant: ident)*),* $(,)?) => {
-                        match opcd.to_uppercase().as_str() {
+                        match opcd.0.to_uppercase().as_str() {
                             $(
                                 stringify!($name) => {
                                     if count!($($variant)*) != args.len() {
-                                        todo!("ne args {args:?}");
+                                        error!('main_loop: OperandCountNotMatch in Span { start: opcd.1.start, end: span.end });
                                     }
 
                                     parser.ast.instructions.push((Instruction::$name($(
                                         any_or!($variant)
-                                    ),*), Span { start: start_span, end: span.end }));
+                                    ),*), Span { start: opcd.1.start, end: span.end }));
 
-                                    opcd.clear();
+                                    opcd.0.clear();
                                     args.clear();
                                 },
                             )*
                             "" => {
                                 match args.get(0) {
-                                    Some(Any::UnresolvedLabel(l)) => {
+                                    Some((Any::UnresolvedLabel(l), _)) => {
                                         label.2.insert(*l, parser.ast.instructions.len() as u64);
                                     },
                                     None => {},
-                                    _ => todo!("unexpected"),
+                                    Some((_, s)) => error!('main_loop: SyntaxError in s.clone()),
                                 }
 
                                 args.clear();
                             },
-                            _ => todo!("{}", opcd),
+                            _ => error!('main_loop: UnknownOpcode in opcd.1.clone()),
                         }
                     };
                 }
@@ -169,14 +210,18 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<(ParserError, Span)>> {
                     OUT Any Any,
                 );
             },
-            other => args.push(get_value!(other)),
+            _ => args.push((get_value!('main_loop: tok.clone(), span.clone()), span)),
         }
     }
 
-    for (id, mut ptr) in replace_labels.into_iter() {
-        *ptr = *label.2.get(&id).unwrap();
+    'main_loop: for (id, mut ptr, span) in replace_labels.into_iter() {
+        *ptr = *some_or_error!('main_loop: label.2.get(&id), LabelNotDefined in span);
         std::mem::forget(ptr);
     }
 
-    Ok(())
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
 }

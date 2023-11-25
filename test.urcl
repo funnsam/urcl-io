@@ -1,3 +1,4 @@
-@define oh r3
-@define cool oh
-add r1 r2 cool
+add r1
+add r2 r3
+add r4 r5 r6 r7
+r8
