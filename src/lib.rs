@@ -1,7 +1,7 @@
-#![cfg_attr(target_arch = "wasm32", crate_type = "cdylib")]
 #![feature(concat_idents)]
 
-pub mod emulator;
+pub mod frontend;
+pub mod backend;
 
 pub mod utils;
 pub use utils::*;
@@ -45,11 +45,7 @@ pub fn init_panic_hook() {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn test(src: &str) {
-    use emulator::{lexer::*, ast::*, parser::*};
-    let mut lex = Token::lexer(src);
-    let mut parser = Parser::new(&mut lex).unwrap();
-    parse(&mut parser).unwrap();
-    logprintln!("{parser:#?}");
+    todo!()
 }
 
 static mut RAND_SEED: u64 = 0;

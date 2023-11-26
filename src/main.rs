@@ -11,8 +11,12 @@
     clippy::just_underscores_and_digits,
 )]
 
-use urcl_io::emulator::{lexer::*, ast::*, parser::*, interpreter::*, error::*};
+use urcl_io::{
+    frontend::{lexer::*, ast::*, parser::*, error::*},
+    backend::codegen::*,
+};
 use std::{time::*, io::*};
+use thousands::Separable;
 
 fn main() {
     let src = std::fs::read_to_string("test.urcl").unwrap();
@@ -42,6 +46,11 @@ fn main() {
     }
     eprintln!("{:#?}", parser.ast);
 
+    let ssa = generate_ssa(parser.ast);
+
+    eprintln!("{ssa}");
+
+    /*
     let mut interpreter = Interpreter::new(parser.ast);
 
     let start_int = Instant::now();
@@ -61,7 +70,12 @@ fn main() {
                 let _ = stdout.flush();
 
                 let duration = start_int.elapsed().as_secs_f64();
-                eprintln!("\x1b[1;32mInterpreter:\x1b[0m program halted (ran for {:.04}s / {:.01}Hz / {instructons} cycles)", duration, instructons as f64 / duration);
+                eprintln!(
+                    "\x1b[1;32mInterpreter:\x1b[0m program halted (ran for {}s / {}Hz / {} cycles)",
+                    (duration).separate_with_commas(),
+                    (instructons as f64 / duration).separate_with_commas(),
+                    instructons.separate_with_commas(),
+                );
                 break;
             },
             StepResult::Error(err) => {
@@ -76,5 +90,5 @@ fn main() {
             }
             StepResult::Running => {},
         }
-    }
+    } */
 }

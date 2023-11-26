@@ -171,7 +171,7 @@ impl Interpreter {
         match unsafe { std::mem::transmute(port) } {
             Port::Text => set_reg!({
                 let mut buf = [0];
-                stdin.take(1).read(&mut buf).unwrap();
+                stdin.read_exact(&mut buf).unwrap();
                 buf[0] as u64
             }),
             _ => return StepResult::Error(Error { kind: InterpreterError::UnsupportedPort(port), span }),

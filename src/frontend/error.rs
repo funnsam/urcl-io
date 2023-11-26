@@ -21,7 +21,7 @@ macro_rules! error_kind {
         impl ErrorKind for $error_name {
             fn message(&self) -> String {
                 match self {
-                    $($crate::emulator::error::$error_name::$internal$((error_kind!(ident a $param)))? => format!($message $(, error_kind!(ident a $param))?)),*
+                    $($crate::frontend::error::$error_name::$internal$((error_kind!(ident a $param)))? => format!($message $(, error_kind!(ident a $param))?)),*
                 }
             }
         }
