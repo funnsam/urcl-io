@@ -47,24 +47,25 @@ fn main() {
     let start_int = Instant::now();
     let mut instructons = 0;
 
-    let mut writer = BufWriter::with_capacity(16 * 0x20, stdout());
+    let mut stdout = BufWriter::with_capacity(16 * 0x20, stdout());
+    let mut stdin  = stdin();
 
     loop {
-        let step = interpreter.step(&mut writer);
+        let step = interpreter.step(&mut stdout, &mut stdin);
         instructons += 1;
         if interpreter.debugging {
             eprintln!("{interpreter:#?}");
         }
         match step {
             StepResult::Halted => {
-                let _ = writer.flush();
+                let _ = stdout.flush();
 
                 let duration = start_int.elapsed().as_secs_f64();
-                eprintln!("\x1b[1;32mInterpreter:\x1b[0m program halted (ran for {:.04}s / {:.01}Hz / {instructons} cycles)", duration, 1.0 / (duration / instructons as f64));
+                eprintln!("\x1b[1;32mInterpreter:\x1b[0m program halted (ran for {:.04}s / {:.01}Hz / {instructons} cycles)", duration, instructons as f64 / duration);
                 break;
             },
             StepResult::Error(err) => {
-                let _ = writer.flush();
+                let _ = stdout.flush();
 
                 let segments = errors_to_formats(vec![err], &src);
                 for s in segments {

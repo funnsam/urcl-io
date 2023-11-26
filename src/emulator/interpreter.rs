@@ -1,6 +1,6 @@
 use super::{*, ast::*, error::*};
 use logos::Span;
-use std::io::Write;
+use std::io::{Read, Write};
 
 #[derive(Debug)]
 pub struct Interpreter {
@@ -32,7 +32,7 @@ impl Interpreter {
         }
     }
 
-    pub fn step(&mut self, stdout: &mut impl Write) -> StepResult {
+    pub fn step(&mut self, stdout: &mut impl Write, stdin: &mut impl Read) -> StepResult {
         macro_rules! step {
             ($op: expr => $sr: expr) => {{
                 $op;
@@ -135,7 +135,7 @@ impl Interpreter {
             IMM d v = step!(op!(set reg *d => op!(get any v)) => StepResult::Running),
             MOV d v = step!(op!(set reg *d => op!(get any v)) => StepResult::Running),
             OUT p v = self.port_out(op!(get any p), op!(get any v), s, stdout),
-            IN d p = todo!("IN r{d} {p:?}"),
+            IN d p = self.port_in(op!(get any p), *d, s, stdin),
         )
     }
 
@@ -153,6 +153,27 @@ impl Interpreter {
                 self.debugging = data & 1 != 0;
                 println!("\x1b[1;32mInterpreter:\x1b[0m debugging is now {}", if self.debugging { "enabled" } else { "disabled" });
             },
+            _ => return StepResult::Error(Error { kind: InterpreterError::UnsupportedPort(port), span }),
+        }
+
+        StepResult::Running
+    }
+
+    fn port_in(&mut self, port: u64, rd: usize, span: Span, stdin: &mut impl Read) -> StepResult {
+        macro_rules! set_reg {
+            ($val: expr) => {
+                if rd != 0 {
+                    self.reg[rd-1] = $val;
+                }
+            };
+        }
+
+        match unsafe { std::mem::transmute(port) } {
+            Port::Text => set_reg!({
+                let mut buf = [0];
+                stdin.take(1).read(&mut buf).unwrap();
+                buf[0] as u64
+            }),
             _ => return StepResult::Error(Error { kind: InterpreterError::UnsupportedPort(port), span }),
         }
 

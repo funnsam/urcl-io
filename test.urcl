@@ -1,8 +1,11 @@
-bits 16
+bits 32
+
+in r1 1
+mov r2 2
+mov r3 1000000
 .loop
-add r1 r1 1
-out 2 r1
-out 1 10
-bge .done r1 65535
-bge .loop r0 r0
-.done
+add r1 r1 r2
+add r2 r2 1
+add r3 r3 r1
+bge .loop r3 1
+out 1 r3
