@@ -1,23 +1,9 @@
-#![warn(
-    clippy::complexity,
-    clippy::correctness,
-    clippy::perf,
-    clippy::nursery,
-    clippy::suspicious,
-    clippy::style,
-)]
-#![allow(
-    clippy::semicolon_inside_block,
-    clippy::just_underscores_and_digits,
-)]
-
 #![cfg_attr(target_arch = "wasm32", crate_type = "cdylib")]
+#![feature(concat_idents)]
 
 pub mod emulator;
 
-#[cfg(not(target_arch = "wasm32"))]
 pub mod utils;
-#[cfg(not(target_arch = "wasm32"))]
 pub use utils::*;
 
 #[cfg(target_arch = "wasm32")]

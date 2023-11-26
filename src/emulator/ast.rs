@@ -1,4 +1,4 @@
-use super::{*, lexer::*};
+use super::{*, lexer::*, error::*};
 use logos::Span;
 
 #[derive(Debug)]
@@ -7,7 +7,7 @@ pub struct Ast {
     pub dw: Vec<u64>,
     pub minheap: usize,
     pub minstack: usize,
-    pub minregs: usize,
+    pub minreg: usize,
     pub bits: usize,
 }
 
@@ -16,9 +16,9 @@ impl Ast {
         Self {
             instructions: Vec::new(),
             dw: Vec::new(),
-            minheap: 8,
-            minstack: 16,
-            minregs: 8,
+            minheap: 16,
+            minstack: 8,
+            minreg: 8,
             bits: 8,
         }
     }
@@ -34,12 +34,15 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(lex: &mut Lexer<Token>) -> Result<Self, Vec<Span>> {
+    pub fn new(lex: &mut Lexer<Token>) -> Result<Self, Vec<Error<LexerError>>> {
         let mut t = Vec::new();
         let mut err = Vec::new();
 
         while let Some(tok) = lex.next() {
-            tok.map_or_else(|_| err.push(lex.span()), |tok| t.push((tok, lex.span())));
+            tok.map_or_else(
+                |_| err.push(Error { kind: LexerError, span: lex.span() }),
+                |tok| t.push((tok, lex.span()))
+            );
         }
 
         t.push((Token::Newline, t.last().map_or(Span { start: 0, end: 1 }, |a| Span { start: a.1.end - 1, end: a.1.end })));
@@ -55,13 +58,15 @@ impl Parser {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
+    // this can't be turned into an iterator without cloning
     pub fn next(&mut self) -> Option<&AToken> {
         self.index += 1;
-        self.tokens.get(self.index-1)
+        self.current()
     }
 
     pub fn current(&mut self) -> Option<&AToken> {
-        self.tokens.get(self.index)
+        self.tokens.get(self.index-1)
     }
     /*
     pub fn peek(&mut self) -> Option<&AToken> {

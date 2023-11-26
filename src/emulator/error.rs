@@ -1,7 +1,8 @@
 use logos::Span;
+use crate::*;
 
 pub trait ErrorKind {
-    fn message(&self) -> &'static str;
+    fn message(&self) -> String;
 }
 
 #[derive(Debug)]
@@ -11,25 +12,30 @@ pub struct Error<Kind> {
 }
 
 macro_rules! error_kind {
-    ($error_name: ident = $($internal: ident $message: tt),* $(,)?) => {
+    ($error_name: ident = $($internal: ident $message: tt $(+ $param: ty)?),* $(,)?) => {
         #[derive(Debug)]
         pub enum $error_name {
-            $($internal),*
+            $($internal$(($param))?),*
         }
 
         impl ErrorKind for $error_name {
-            fn message(&self) -> &'static str {
+            fn message(&self) -> String {
                 match self {
-                    $($crate::emulator::error::$error_name::$internal => $message),*
+                    $($crate::emulator::error::$error_name::$internal$((error_kind!(ident a $param)))? => format!($message $(, error_kind!(ident a $param))?)),*
                 }
             }
         }
+    };
+    (ident $id: ident $_: ty) => {
+        $id
     };
 }
 
 error_kind!(InterpreterError =
     StackOverflow       "stack overflowed",
     StackUnderflow      "stack underflowed",
+    UnsupportedPort     "unsupported port {}" + u64,
+    MemoryAccessOob     "accessed out-of-bound memory location {}" + u64
 );
 
 error_kind!(ParserError =
@@ -37,6 +43,7 @@ error_kind!(ParserError =
     LabelNotDefined         "label is not defined anywhere",
     ExpectingValue          "expecting value",
     ExpectingName           "expecting name",
+    ExpectingImmediate      "expecting immediate",
     UnknownMacro            "unknown macro",
     OperandWrongType        "the operand have a incompatable type with the instruction",
     UnknownOpcode           "unknown opcode is used",
@@ -45,8 +52,11 @@ error_kind!(ParserError =
     UnexpectedEof           "unexpected end of file",
 );
 
-macro_rules! segment {
-    ($text: expr, $fg: ident $bg: ident) => { FormatSegment { text: $text, fg: Color::$fg, bg: Color::$bg } };
+pub struct LexerError;
+impl ErrorKind for LexerError {
+    fn message(&self) -> String {
+        "lexer error".to_string()
+    }
 }
 
 #[derive(Debug)]
@@ -56,42 +66,42 @@ pub struct ErrorContext<'a> {
 }
 
 impl<Kind: ErrorKind> Error<Kind> {
-    pub fn to_formats<'a>(&self, ctx: &ErrorContext<'a>) -> Vec<FormatSegment> {
+    pub fn to_formats(&self, ctx: &ErrorContext<'_>) -> Vec<FormatSegment> {
         let mut i = ctx.source[..self.span.start].matches('\n').count()+1;
         let end = ctx.source[..self.span.end].matches('\n').count()+1;
         let chw = format!("{end}").len();
 
         let mut segments = vec![
-            segment!("Error".to_string(), BrightRed None),
-            segment!(format!(": {}{}\n", self.kind.message(), " ".repeat(chw)), None None)
+            segment!("Error:".to_string(), BrightRed None b),
+            segment!(format!(" {}{}\n", self.kind.message(), " ".repeat(chw)), None None),
+            segment!(format!("{} \u{2502}\n", " ".repeat(chw)), BrightBlue None),
         ];
 
         for el in ctx.source.lines().skip(i-1) {
-            let spaces = self.span.start.checked_sub(ctx.cat[i-1]).unwrap_or(0);
+            let spaces = self.span.start.saturating_sub(ctx.cat[i-1]);
 
-            segments.push(segment!(
-                format!("{i}{} \u{2502} ", " ".repeat(chw - format!("{i}").len())),
-                BrightBlue None
-            ));
-
-            segments.push(segment!(el.trim_end().replace("\t", "    "), None None));
-
-            segments.push(segment!(
-                format!(
-                    "\n {}\u{2502}",
-                    " ".repeat(chw),
+            segments.extend([
+                segment!(
+                    format!("{i}{} \u{2502} ", " ".repeat(chw - format!("{i}").len())),
+                    BrightBlue None
                 ),
-                BrightBlue None
-            ));
-
-            segments.push(segment!(
-                format!(
-                    " {}{}\n",
-                    " ".repeat(spaces + el.matches('\t').count() * 3),
-                    "^".repeat(el.len()-spaces-ctx.cat.get(i).unwrap_or(&0).checked_sub(self.span.end).unwrap_or(0)+1),
+                segment!(el.trim_end().replace('\t', "    "), None None),
+                segment!(
+                    format!(
+                        "\n {}\u{2502}",
+                        " ".repeat(chw),
+                    ),
+                    BrightBlue None
                 ),
-                BrightYellow None
-            ));
+                segment!(
+                    format!(
+                        " {}{}\n",
+                        " ".repeat(spaces + el.matches('\t').count() * 3),
+                        "^".repeat(el.len()-spaces-ctx.cat.get(i).unwrap_or(&0).checked_sub(self.span.end).unwrap_or(0)+1),
+                    ),
+                    BrightYellow None
+                ),
+            ]);
 
             if i >= end {
                 break;
@@ -99,7 +109,10 @@ impl<Kind: ErrorKind> Error<Kind> {
             i += 1;
         }
 
-        segments.push(segment!("\n".to_string(), None None));
+        segments.extend([
+            segment!(format!("{} \u{2502}\n", " ".repeat(chw)), BrightBlue None),
+            segment!("\n".to_string(), None None)
+        ]);
 
         segments
     }
@@ -121,73 +134,4 @@ pub fn errors_to_formats<Kind: ErrorKind>(errors: Vec<Error<Kind>>, src: &str) -
     }
 
     out
-}
-
-pub struct FormatSegment {
-    pub text: String,
-    pub fg: Color,
-    pub bg: Color,
-}
-
-pub enum Color {
-    Black, Red, Green, Yellow, Blue, Magenta, Cyan, White,
-    BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue, BrightMagenta, BrightCyan, BrightWhite,
-    None
-}
-
-impl Color {
-    pub fn ansi_fg(&self) -> &'static str {
-        use Color::*;
-        match self {
-            Black           => "30",
-            Red             => "31",
-            Green           => "32",
-            Yellow          => "33",
-            Blue            => "34",
-            Magenta         => "35",
-            Cyan            => "36",
-            White           => "37",
-            BrightBlack     => "90",
-            BrightRed       => "91",
-            BrightGreen     => "92",
-            BrightYellow    => "93",
-            BrightBlue      => "94",
-            BrightMagenta   => "95",
-            BrightCyan      => "96",
-            BrightWhite     => "97",
-            None            => "",
-        }
-    }
-    pub fn ansi_bg(&self) -> &'static str {
-        use Color::*;
-        match self {
-            Black           => "40",
-            Red             => "41",
-            Green           => "42",
-            Yellow          => "43",
-            Blue            => "44",
-            Magenta         => "45",
-            Cyan            => "46",
-            White           => "47",
-            BrightBlack     => "100",
-            BrightRed       => "101",
-            BrightGreen     => "102",
-            BrightYellow    => "103",
-            BrightBlue      => "104",
-            BrightMagenta   => "105",
-            BrightCyan      => "106",
-            BrightWhite     => "107",
-            None => "",
-        }
-    }
-}
-
-impl FormatSegment {
-    pub fn to_ansi(&self) -> String {
-        format!("{}{}\x1b[0m", match (&self.fg, &self.bg) {
-            (Color::None, Color::None) => "".to_string(),
-            (Color::None, one_of) | (one_of, Color::None) => format!("\x1b[{}m", one_of.ansi_fg()),
-            (fg, bg) => format!("\x1b[{};{}m", fg.ansi_fg(), bg.ansi_bg())
-        }, self.text)
-    }
 }

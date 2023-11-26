@@ -77,6 +77,22 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<Error<ParserError>>> {
         ($main_loop: tt: $tok: expr, $span: expr) => { get_name!($main_loop: ($tok, $span)) };
     }
 
+    macro_rules! options_get_imm {
+        ($tok: expr) => {
+            match $tok {
+                Token::Number(imm) => Some(imm),
+                _ => None,
+            }
+        }
+    }
+
+    macro_rules! get_imm {
+        ($main_loop: tt: $tok_span_tuple: expr) => {
+            some_or_error!($main_loop: options_get_imm!($tok_span_tuple.0), ExpectingImmediate in $tok_span_tuple.1)
+        };
+        ($main_loop: tt: $tok: expr, $span: expr) => { get_imm!($main_loop: ($tok, $span)) };
+    }
+
     macro_rules! some_or_error {
         ($main_loop: tt: $opt: expr, $kind: ident in $span: expr) => {
             if let Some(ok) = $opt {
@@ -123,6 +139,10 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<Error<ParserError>>> {
 
                     name.insert(k, v);
                 },
+                "bits"      => parser.ast.bits      = get_imm!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span)) as usize,
+                "minheap"   => parser.ast.minheap   = get_imm!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span)) as usize,
+                "minstack"  => parser.ast.minstack  = get_imm!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span)) as usize,
+                "minreg"    => parser.ast.minreg    = get_imm!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span)) as usize,
                 _ => error!('main_loop: UnknownMacro in span),
             },
             Token::Newline => {

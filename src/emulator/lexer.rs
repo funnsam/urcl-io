@@ -4,11 +4,16 @@ pub use logos::{Logos, Lexer};
 #[derive(Clone, Debug, Logos)]
 #[logos(skip r"//[^\n]+")]
 #[logos(skip r"[\s^\n]")]
+#[logos(skip r"/\*([^*]|\*[^/])*\*/")]
 pub enum Token {
     #[regex(r"(\+|\-)?(0[xX][A-Fa-f0-9]+|0[bB][0-1]+|0[oO][0-7]+|[0-9]+)", callback = |lex| parse_number(lex, 0).unwrap(), priority = 2)]
     Number(i64),
 
     #[regex(r"@[\S]+", callback = |lex| rm_prefix(lex, 1))]
+    #[regex(r"bits"    , callback = |_| "bits".to_string(), ignore(case))]
+    #[regex(r"minheap" , callback = |_| "minheap".to_string(), ignore(case))]
+    #[regex(r"minstack", callback = |_| "minstack".to_string(), ignore(case))]
+    #[regex(r"minreg"  , callback = |_| "minreg".to_string(), ignore(case))]
     Macro(String),
 
     #[regex(r"\.[\S]+", callback = |lex| rm_prefix(lex, 1))]
@@ -17,7 +22,7 @@ pub enum Token {
     #[regex(r"%[\S]+", callback = |lex| rm_prefix(lex, 1))]
     Port(String),
 
-    #[regex(r"[\S]+", callback = |lex| rm_prefix(lex, 0), priority = 0)]
+    #[regex(r"[a-zA-Z_\u0100-\uFFFF][a-zA-Z_0-9\u0100-\uFFFF]*", callback = |lex| rm_prefix(lex, 0), priority = 0)]
     Name(String),
 
     #[regex(r"(R|r|\$)(\+|\-)?(0[xX][A-Fa-f0-9]+|0[bB][0-1]+|0[oO][0-7]+|[0-9]+)", callback = |lex| parse_number(lex, 1).unwrap())]
@@ -31,6 +36,14 @@ pub enum Token {
 
     #[token("\n")]
     Newline,
+
+    #[token("dw", ignore(case))]
+    Dw,
+
+    #[token("[")]
+    ArrayStart,
+    #[token("]")]
+    ArrayEnd,
 }
 
 fn parse_char(lex: &Lexer<Token>) -> Option<char> {
@@ -45,6 +58,7 @@ fn parse_char(lex: &Lexer<Token>) -> Option<char> {
             Some('r')  => Some('\x0d'),
             Some('t')  => Some('\x09'),
             Some('v')  => Some('\x0b'),
+            Some('0')  => Some('\0'),
             Some('\\') => Some('\\'),
             Some('\'') => Some('\''),
             Some('\"') => Some('\"'),

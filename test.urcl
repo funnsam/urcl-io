@@ -1,4 +1,8 @@
-add r1
-add r2 r3
-add r4 r5 r6 r7
-r8
+bits 16
+.loop
+add r1 r1 1
+out 2 r1
+out 1 10
+bge .done r1 65535
+bge .loop r0 r0
+.done
