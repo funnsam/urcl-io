@@ -25,3 +25,14 @@ pub enum Any {
 
 pub type Register = usize;
 pub type Immediate = Box<u64>;
+
+#[derive(Debug)]
+#[repr(u64)]
+pub enum Port {
+    CpuBus, Text, Number, Supported = 5, Special, Profile,
+    X, Y, Color, Buffer, GSpecial = 15,
+    Ascii8, Char5, Char6, Ascii7, Utf8, TSpecial = 23,
+    Int, UInt, Bin, Hex, Float, Fixed, NSpecial = 31,
+    Addr, Bus, Page, SSpecial = 39,
+    Rng, Note, Instr, NLeg, Wait, NAddr, Data, MSpecial,
+}

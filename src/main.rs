@@ -53,31 +53,28 @@ fn main() {
 
     let mut interpreter = Interpreter::new(ssa);
 
-    // let start_int = Instant::now();
-    // let mut instructons = 0;
+    let start_int = Instant::now();
 
     let mut stdout = BufWriter::with_capacity(16 * 0x20, stdout());
     let mut stdin  = stdin();
 
     loop {
         let step = interpreter.step(&mut stdout, &mut stdin);
-        // instructons += 1;
         // if interpreter.debugging {
-            eprintln!("{interpreter:#?}");
+            // println!("{interpreter:#?}");
         // }
         match step {
             StepResult::Halted => {
                 let _ = stdout.flush();
 
-                /*
                 let duration = start_int.elapsed().as_secs_f64();
                 eprintln!(
                     "\x1b[1;32mInterpreter:\x1b[0m program halted (ran for {}s / {}Hz / {} cycles)",
                     (duration).separate_with_commas(),
-                    (instructons as f64 / duration).separate_with_commas(),
-                    instructons.separate_with_commas(),
-                ); */
-                break;
+                    (interpreter.inst_count as f64 / duration).separate_with_commas(),
+                    interpreter.inst_count.separate_with_commas(),
+                );
+                std::process::exit(0);
             },
             StepResult::Error(err) => {
                 let _ = stdout.flush();

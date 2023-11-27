@@ -1,4 +1,5 @@
 #![feature(concat_idents)]
+#![allow(mutable_transmutes)]
 
 pub mod compiler;
 

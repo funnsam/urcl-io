@@ -1,4 +1,4 @@
-use crate::compiler::{error::*, frontend::{common::*, lexer::*}};
+use crate::compiler::{error::*, common::*, frontend::lexer::*};
 use logos::Span;
 
 #[derive(Debug)]

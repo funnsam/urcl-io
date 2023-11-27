@@ -1,7 +1,10 @@
 use crate::{
     instruction,
-    compiler::frontend::{ast::*, common::{Any, Instruction as Inst}},
-    compiler::backend::{ssa::*, builder::*},
+    compiler::{
+        common::{Any, Instruction as Inst},
+        frontend::ast::*,
+        backend::{ssa::*, builder::*}
+    },
 };
 
 pub fn generate_ssa(ast: Ast) -> (Body, usize, usize) {
@@ -124,8 +127,22 @@ pub fn generate_ssa(ast: Ast) -> (Body, usize, usize) {
                 set!(reg *d => a);
                 builder.set_terminator(block, Terminator::Jump(blocks[i+1]));
             },
-            _ => {
+            Inst::IN(d, p) => {
+                let p = get_value!(any p);
+                let d_tmp = builder.allocate_value();
+                builder.append_instruction(block, instruction!(Operation::Call(Function::PortRead, vec![p]) => d_tmp));
+                set!(reg *d => d_tmp);
                 builder.set_terminator(block, Terminator::Jump(blocks[i+1]));
+            },
+            Inst::OUT(p, d) => {
+                let p = get_value!(any p);
+                let d = get_value!(any d);
+                builder.append_instruction(block, instruction!(Operation::Call(Function::PortWrite, vec![p, d])));
+                builder.set_terminator(block, Terminator::Jump(blocks[i+1]));
+            },
+            _ => {
+                todo!()
+                // builder.set_terminator(block, Terminator::Jump(blocks[i+1]));
             },
         }
     }

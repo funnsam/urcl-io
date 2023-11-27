@@ -169,7 +169,7 @@ impl Display for Operation {
             Self::Integer(int)      => write!(fmt, "{int}"),
             Self::BinOp(op, l, r)   => write!(fmt, "\x1b[33m{op} \x1b[36m{l} {r}"),
             Self::Call(f, args)     => write!(fmt, "\x1b[33mcall \x1b[34m{f:?}\x1b[0m({})", args.iter()
-                .map(|e| format!("\x1b[36m{}", e))
+                .map(|e| format!("\x1b[36m{}\x1b[0m", e))
                 .collect::<Vec<String>>()
                 .join(", ")
             ),
