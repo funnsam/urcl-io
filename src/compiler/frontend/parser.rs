@@ -1,4 +1,4 @@
-use super::{ast::*, lexer::*, common::*, error::*};
+use crate::compiler::{error::*, frontend::{ast::*, common::*, lexer::*}};
 use logos::Span;
 use std::collections::HashMap;
 
@@ -144,6 +144,10 @@ pub fn parse(parser: &mut Parser) -> Result<(), Vec<Error<ParserError>>> {
                 "minstack"  => parser.ast.minstack  = get_imm!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span)) as usize,
                 "minreg"    => parser.ast.minreg    = get_imm!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span)) as usize,
                 _ => error!('main_loop: UnknownMacro in span),
+            },
+            Token::Dw => {
+                let word = get_imm!('main_loop: some_or_error!('main_loop: parser.next().cloned(), UnexpectedEof in span)) as u64;
+                parser.ast.dw.push(word);
             },
             Token::Newline => {
                 macro_rules! count {

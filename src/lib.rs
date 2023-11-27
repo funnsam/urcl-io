@@ -1,7 +1,6 @@
 #![feature(concat_idents)]
 
-pub mod frontend;
-pub mod backend;
+pub mod compiler;
 
 pub mod utils;
 pub use utils::*;

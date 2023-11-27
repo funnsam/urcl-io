@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use logos::Span;
 
 macro_rules! type_wrapper {
     ($tv: vis $type: ident = $iv: vis $inner: ty : $fmt: tt) => {
@@ -27,6 +28,30 @@ macro_rules! type_wrapper {
     };
 }
 
+macro_rules! binop {
+    ($($name: ident = $op: tt),* $(,)?) => {
+        pub enum BinOp {
+            $($name),*
+        }
+
+        impl ::std::fmt::Display for BinOp {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                match self {
+                    $(BinOp::$name => write!(f, "{}", stringify!($name).to_lowercase())),*
+                }
+            }
+        }
+
+        impl BinOp {
+            pub fn operate(&self, lhs: u64, rhs: u64) -> u64 {
+                match self {
+                    $(BinOp::$name => (lhs $op rhs) as u64),*
+                }
+            }
+        }
+    };
+}
+
 type_wrapper!(pub ValueId = pub(crate) usize    : "%{}");
 type_wrapper!(pub VariableId = pub(crate) usize : "#{}");
 type_wrapper!(pub BlockId = pub(crate) usize    : "${}");
@@ -41,47 +66,50 @@ pub struct Block {
     pub id: BlockId,
     pub instructions: Vec<Instruction>,
     pub terminator: Terminator,
+    pub span: Option<Span>,
 }
 
 pub struct Instruction {
     pub destination: Option<ValueId>,
-    pub operation: Operation
+    pub operation: Operation,
 }
 
 pub enum Operation {
     Integer(u64),
     BinOp(BinOp, ValueId, ValueId),
     Call(Function, Vec<ValueId>),
-    LoadVar(VariableId),
-    StoreVar(VariableId, ValueId),
+    Allocate(VariableId, ValueId),
+    LoadIndex(VariableId, ValueId),
+    StoreIndex(VariableId, ValueId, ValueId),
     Phi(Vec<(ValueId, BlockId)>),
 }
 
 #[derive(Debug)]
 pub enum Function {
-    LastOk,             // LastOk() -> int
+    LastOk,             // LastOk() -> bool
     PortRead,           // PortRead(port: int) -> int
     PortWrite,          // PortWrite(port: int, data: int)
+    ReportError,        // ReportError(kind: int, program_counter: int) -> !
 }
 
-pub enum BinOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    And,
-    Or,
-    Xor,
-    Shl,
-    Shr,
-    Eq,
-    Ne,
-    Lt,
-    Le,
-    Gt,
-    Ge,
-}
+binop!(
+    Add = +,
+    Sub = -,
+    Mul = *,
+    Div = /,
+    Mod = %,
+    And = &,
+    Or  = |,
+    Xor = ^,
+    Shl = <<,
+    Shr = >>,
+    Eq  = ==,
+    Ne  = !=,
+    Lt  = <,
+    Le  = <=,
+    Gt  = >,
+    Ge  = >=,
+);
 
 pub enum Terminator {
     Return,
@@ -102,13 +130,13 @@ impl Display for Body {
 
 impl Display for Block {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        writeln!(fmt, "\x1b[1;34mblk\x1b[0m {}: \x1b[90m// id: {}\x1b[0m", self.name, *self.id)?;
+        writeln!(fmt, "\x1b[35m${}\x1b[0m: \x1b[90m// {} {:?}\x1b[0m", *self.id, self.name, self.span)?;
 
         for instr in &self.instructions {
             writeln!(fmt, "    {}", instr)?;
         }
 
-        writeln!(fmt, "    \x1b[32m{}\x1b[0m", self.terminator)?;
+        writeln!(fmt, "    {}\x1b[0m", self.terminator)?;
 
         Ok(())
     }
@@ -117,10 +145,10 @@ impl Display for Block {
 impl Display for Terminator {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Return => write!(fmt, "ret"),
-            Self::Jump(block) => write!(fmt, "jmp {block}"),
-            Self::Branch(cond, if_, else_) => write!(fmt, "br {cond} {if_} {else_}"),
-            Self::None => Ok(()),
+            Self::Return                    => write!(fmt, "\x1b[32mret"),
+            Self::Jump(block)               => write!(fmt, "\x1b[32mjmp \x1b[35m{block}"),
+            Self::Branch(cond, if_, else_)  => write!(fmt, "\x1b[32mbr \x1b[36m{cond} \x1b[35m{if_} {else_}"),
+            Self::None                      => write!(fmt, "\x1b[1;31mno terminator!"),
         }
     }
 }
@@ -128,10 +156,10 @@ impl Display for Terminator {
 impl Display for Instruction {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         if let Some(dst) = self.destination {
-            write!(fmt, "\x1b[32m{dst}\x1b[0m = ")?;
+            write!(fmt, "\x1b[36m{dst}\x1b[0m = ")?;
         }
 
-        write!(fmt, "\x1b[33m{}\x1b[0m", self.operation)
+        write!(fmt, "{}\x1b[0m", self.operation)
     }
 }
 
@@ -139,15 +167,16 @@ impl Display for Operation {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         match self {
             Self::Integer(int)      => write!(fmt, "{int}"),
-            Self::BinOp(op, l, r)   => write!(fmt, "{op} {l} {r}"),
-            Self::Call(f, args)     => write!(fmt, "call {f:?}({})", args.iter()
-                .map(|e| format!("{}", e))
+            Self::BinOp(op, l, r)   => write!(fmt, "\x1b[33m{op} \x1b[36m{l} {r}"),
+            Self::Call(f, args)     => write!(fmt, "\x1b[33mcall \x1b[34m{f:?}\x1b[0m({})", args.iter()
+                .map(|e| format!("\x1b[36m{}", e))
                 .collect::<Vec<String>>()
                 .join(", ")
             ),
-            Self::LoadVar(var)      => write!(fmt, "load {var}"),
-            Self::StoreVar(v, val)  => write!(fmt, "store {v} {val}"),
-            Self::Phi(branches)     => write!(fmt, "Φ {}", branches.iter()
+            Self::Allocate(v, size) => write!(fmt, "\x1b[33malloc \x1b[34m{v} \x1b[36m{size}"),
+            Self::LoadIndex(var, off)       => write!(fmt, "\x1b[33mload \x1b[34m{var}\x1b[0m[\x1b[36m{off}\x1b[0m]"),
+            Self::StoreIndex(v, off, val)   => write!(fmt, "\x1b[33mstore \x1b[34m{v}\x1b[0m[\x1b[36m{off}\x1b[0m] \x1b[36m{val}"),
+            Self::Phi(branches)     => write!(fmt, "\x1b[33mphi \x1b[34m{}", branches.iter()
                 .map(|(val, block)| format!("{}: {}", block, val))
                 .collect::<Vec<String>>()
                 .join(", ")
@@ -156,32 +185,12 @@ impl Display for Operation {
     }
 }
 
-impl Display for BinOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BinOp::Add => write!(f, "add"),
-            BinOp::Sub => write!(f, "sub"),
-            BinOp::Mul => write!(f, "mul"),
-            BinOp::Div => write!(f, "div"),
-            BinOp::Mod => write!(f, "mod"),
-            BinOp::And => write!(f, "and"),
-            BinOp::Or  => write!(f, "or"),
-            BinOp::Xor => write!(f, "xor"),
-            BinOp::Shl => write!(f, "shl"),
-            BinOp::Shr => write!(f, "shr"),
-            BinOp::Eq  => write!(f, "eq"),
-            BinOp::Ne  => write!(f, "ne"),
-            BinOp::Lt  => write!(f, "lt"),
-            BinOp::Le  => write!(f, "le"),
-            BinOp::Gt  => write!(f, "gt"),
-            BinOp::Ge  => write!(f, "ge"),
-        }
-    }
-}
-
 #[macro_export]
 macro_rules! instruction {
     ($oper: expr => $dest: expr) => {{
-        $crate::backend::ssa::Instruction { operation: $oper, destination: $dest }
+        $crate::compiler::backend::ssa::Instruction { operation: $oper, destination: Some($dest) }
+    }};
+    ($oper: expr) => {{
+        $crate::compiler::backend::ssa::Instruction { operation: $oper, destination: None }
     }};
 }

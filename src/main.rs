@@ -11,9 +11,10 @@
     clippy::just_underscores_and_digits,
 )]
 
-use urcl_io::{
-    frontend::{lexer::*, ast::*, parser::*, error::*},
-    backend::codegen::*,
+use urcl_io::compiler::{
+    frontend::{lexer::*, ast::*, parser::*},
+    backend::{codegen::*, arch::interpreter::*},
+    error::*,
 };
 use std::{time::*, io::*};
 use thousands::Separable;
@@ -48,34 +49,34 @@ fn main() {
 
     let ssa = generate_ssa(parser.ast);
 
-    eprintln!("{ssa}");
+    eprintln!("{}", ssa.0);
 
-    /*
-    let mut interpreter = Interpreter::new(parser.ast);
+    let mut interpreter = Interpreter::new(ssa);
 
-    let start_int = Instant::now();
-    let mut instructons = 0;
+    // let start_int = Instant::now();
+    // let mut instructons = 0;
 
     let mut stdout = BufWriter::with_capacity(16 * 0x20, stdout());
     let mut stdin  = stdin();
 
     loop {
         let step = interpreter.step(&mut stdout, &mut stdin);
-        instructons += 1;
-        if interpreter.debugging {
+        // instructons += 1;
+        // if interpreter.debugging {
             eprintln!("{interpreter:#?}");
-        }
+        // }
         match step {
             StepResult::Halted => {
                 let _ = stdout.flush();
 
+                /*
                 let duration = start_int.elapsed().as_secs_f64();
                 eprintln!(
                     "\x1b[1;32mInterpreter:\x1b[0m program halted (ran for {}s / {}Hz / {} cycles)",
                     (duration).separate_with_commas(),
                     (instructons as f64 / duration).separate_with_commas(),
                     instructons.separate_with_commas(),
-                );
+                ); */
                 break;
             },
             StepResult::Error(err) => {
@@ -90,5 +91,5 @@ fn main() {
             }
             StepResult::Running => {},
         }
-    } */
+    }
 }

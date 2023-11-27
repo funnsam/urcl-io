@@ -1,4 +1,9 @@
-bits 32
+mov r1 10
+.loop
+add r1 r1 -1
+bge .loop r1 1
+
+/*bits 32
 
 in r1 1
 mov r2 2
@@ -8,4 +13,8 @@ add r1 r1 r2
 add r2 r2 1
 add r3 r3 r1
 bge .loop r3 1
-out 1 r3
+out 1 r3*/
+
+dw 1
+dw 2
+dw 3

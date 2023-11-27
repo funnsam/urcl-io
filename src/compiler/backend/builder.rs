@@ -1,4 +1,5 @@
 use super::ssa::*;
+use logos::Span;
 
 #[derive(Default)]
 pub struct Builder {
@@ -10,16 +11,17 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn get_body(self) -> Body {
-        self.body
+    pub fn get_ssa(self) -> (Body, usize, usize) {
+        (self.body, *self.value_id, *self.variable_id)
     }
 
-    pub fn append_block<A: Into<String>>(&mut self, name: A) -> BlockId {
+    pub fn append_block<A: Into<String>>(&mut self, name: A, span: Option<Span>) -> BlockId {
         self.body.blocks.push(Block {
             name: name.into(),
             id: self.block_id,
             instructions: Vec::new(),
             terminator: Terminator::None,
+            span
         });
         *self.block_id += 1;
         BlockId(*self.block_id - 1)
@@ -36,5 +38,10 @@ impl Builder {
     pub fn allocate_value(&mut self) -> ValueId {
         *self.value_id += 1;
         ValueId(*self.value_id - 1)
+    }
+
+    pub fn allocate_variable(&mut self) -> VariableId {
+        *self.variable_id += 1;
+        VariableId(*self.variable_id - 1)
     }
 }
